@@ -9,6 +9,13 @@ import org.springframework.boot.autoconfigure.SpringBootApplication
 import org.springframework.boot.runApplication
 import org.springframework.context.annotation.Bean
 import org.springframework.stereotype.Component
+import java.net.ConnectException
+import java.net.URI
+import java.net.http.HttpClient
+import java.net.http.HttpRequest
+import java.net.http.HttpResponse
+import java.net.http.HttpResponse.BodyHandlers
+import java.time.Duration
 
 class MatchRequest(val ReportId: Int)
 
@@ -22,15 +29,48 @@ class MatcherUrl(
 	fun printUrl(){
 		print(url)
 	}
+
+	fun getUrl(): String {
+		return url
+	}
+}
+
+@Component
+class HTTPClient(val matcherUrl: MatcherUrl){
+
+	val client: HttpClient = HttpClient.newHttpClient()
+
+	fun sendGetRequest(){
+		println("GET request to ${matcherUrl.getUrl()}")
+		val request: HttpRequest? = HttpRequest.newBuilder()
+			.uri(URI(matcherUrl.getUrl()))
+			.GET()
+			.timeout(Duration.ofSeconds(10))
+			.build()
+		var response: HttpResponse<String?>?
+		try {
+			response = client.send(request,BodyHandlers.ofString())
+		}
+		catch (e: ConnectException){
+			response = null;
+			println("Can't connect to ${matcherUrl.getUrl()}")
+		}
+
+		if(response == null){
+			println("No response")
+		}
+		else if(response.statusCode()== 404){
+			println("${matcherUrl.getUrl()} returned status code 404")
+		}
+
+	}
 }
 
 @SpringBootApplication
-class TestApplication(val matcherUrl: MatcherUrl): CommandLineRunner {
-
-	val LOG: Logger = LoggerFactory.getLogger(TestApplication::class.java)
+class TestApplication(val httpClient: HTTPClient): CommandLineRunner {
 
 	override fun run(vararg args: String?) {
-		matcherUrl.printUrl()
+		httpClient.sendGetRequest()
 	}
 }
 
